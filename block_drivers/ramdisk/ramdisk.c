@@ -4,6 +4,7 @@
 #include <linux/fs.h>
 #include <linux/init.h>			/* Needed for macros	*/
 #include <linux/blkdev.h>
+#include <linux/vmalloc.h>
 
 struct ramdisk_dev {
 	int size;	/*	size in sectors to form the disk	*/
@@ -116,9 +117,9 @@ static int __init init_ramdisk(void)
 static void __exit exit_ramdisk(void)
 {
 	pr_emerg("Exiting RAMDISK!\n");
-#if 0
 	if (dev->gd) {
 		del_gendisk(dev->gd);
+		put_disk(dev->gd);
 	}
 	if (dev->queue) {
 		blk_cleanup_queue(dev->queue);
@@ -126,10 +127,10 @@ static void __exit exit_ramdisk(void)
 	if (dev->data) {
 		vfree(dev->data);
 	}
+	kfree(dev);
 	if (ramdisk_major > 0) {
 		unregister_blkdev(ramdisk_major, "ramdisk");
 	}
-#endif
 }
 
 module_init(init_ramdisk);
