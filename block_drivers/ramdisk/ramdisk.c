@@ -27,6 +27,7 @@ static unsigned int req = 0;
 
 static blk_qc_t ramdisk_req_fn(struct request_queue *q, struct bio *bio)
 {
+	/*	Fix the request queue handling	*/
 	//struct ramdrv_dev *dev = q->queuedata;
 	//int status;
 
