@@ -3,18 +3,24 @@
 #include <linux/printk.h>
 #include <linux/list.h>		/* Linked list routines 	*/
 #include <linux/slab.h>		/*	kzalloc			*/
+#include <linux/kfifo.h>	/*	Queue routines		*/
 
 #include "kernel_ds.h"
 
 #ifdef VSDBG
 	#define CALL(expr)				(expr)
-	#define PLL(long_long_num)			pr_emerg("VSDBG: %lld", long_long_num);
-	#define PS(string)				pr_emerg("VSDBG: %s", string);
+	#define PLL(long_long_num)			pr_emerg("VSDBG: %lld\n", long_long_num);
+	#define PS(string)				pr_emerg("VSDBG: %s\n", string);
 #else
 	#define CALL(expr)
 	#define PLL(long_long_num)
 	#define PS(string)
 #endif
+
+/*==================================================================================================================
+ *					LINKED LISTS
+ *==================================================================================================================
+ */
 
 /*
  *	Linked list example:
@@ -69,24 +75,86 @@ static void delete_records(void) {
 	}
 }
 
+/*==================================================================================================================
+ *					STACK: to be implemented. (Plan is to use LL in reverse)
+ *==================================================================================================================
+ */
+
+/*==================================================================================================================
+ *					QUEUEs
+ *==================================================================================================================
+ */
+
+static struct kfifo q;
+
+static void init_q(void) {
+	int ret;
+	unsigned int i;
+	unsigned int ids[MAX_EMPS] = {10, 23, 45, 36, 67};
+	ret = kfifo_alloc(&q, MAX_EMPS * sizeof(unsigned int), GFP_KERNEL);
+	if (ret) {
+		pr_emerg("VSDBG: No memory for Q\n");
+		return;
+	}
+
+	for (i=0; i<MAX_EMPS; i++) {
+		ret = kfifo_in(&q, &ids[i], sizeof(ids[i]));
+		if (sizeof(ids[i]) != ret)	{
+			pr_emerg("VSDBG: No space left to enQ\n");
+			return;
+		}
+	}
+}
+
+static void print_q(void) {
+	int ret;
+	unsigned int i, val;
+	if (kfifo_is_empty(&q))	{
+		pr_emerg("VSDBG: Q empty\n");
+		return;
+	}
+	for (i=0; i<MAX_EMPS; i++) {
+		ret = kfifo_out(&q, &val, sizeof(val));
+		if (sizeof(val) != ret)	{
+			pr_emerg("VSDBG: Cannot deQ\n");
+			return;
+		}
+		PLL(val);
+	}
+}
+
+static void delete_q(void) {
+	kfifo_free(&q);
+}
+
+
 static int init_kernel_ds(void)
 {
-	PS("============================================================================\n");
-	PS("-------------------------------------------------------\n")
-	PS("init: Linked lists in kernel\n");
+	PS("============================================================================");
+	PS("-------------------------------------------------------")
+	PS("init: Linked lists in kernel");
+	PS("-------------------------------------------------------")
 	init_records();
 	print_records();
-	/* 
-	 * A non 0 return means init_module failed; module can't be loaded. 
-	 */
+	PS("-------------------------------------------------------")
+	PS("init: Queues in kernel");
+	PS("-------------------------------------------------------")
+	init_q();
+	print_q();
 	return 0;
 }
 
 static void exit_kernel_ds(void)
 {
-	PS("-------------------------------------------------------\n")
-	PS("exit: Linked lists in kernel\n");
+	PS("-------------------------------------------------------")
+	PS("exit: Linked lists in kernel");
+	PS("-------------------------------------------------------")
+	/*	fix me: Not working delete_records	*/
 	//delete_records();
+	PS("-------------------------------------------------------")
+	PS("exit: Queues in kernel");
+	PS("-------------------------------------------------------")
+	delete_q();
 }
 
 module_init(init_kernel_ds);
