@@ -1,19 +1,23 @@
 #include <linux/module.h>	/* Needed by all modules */
 #include <linux/kernel.h>
 #include <linux/printk.h>
-#include <linux/list.h>		/* Linked list routines 	*/
+#include <linux/list.h>		/* 	Linked list routines 	*/
 #include <linux/slab.h>		/*	kzalloc			*/
 #include <linux/kfifo.h>	/*	Queue routines		*/
+#include <linux/hashtable.h>	/*	hash table		*/
+#include <linux/types.h>	/*	hash function		*/
 
 #include "kernel_ds.h"
 
 #ifdef VSDBG
 	#define CALL(expr)				(expr)
 	#define PLL(long_long_num)			pr_emerg("VSDBG: %lld\n", long_long_num);
+	#define PI(int_num)				pr_emerg("VSDBG: %d\n", int_num);
 	#define PS(string)				pr_emerg("VSDBG: %s\n", string);
 #else
 	#define CALL(expr)
 	#define PLL(long_long_num)
+	#define PI(int_num)
 	#define PS(string)
 #endif
 
@@ -39,6 +43,7 @@ struct emp_record {
 	unsigned int id;
 	unsigned long long sal;
 	struct list_head list;
+	struct hlist_node node;
 };
 
 static void init_records(void) {
@@ -56,7 +61,6 @@ static void init_records(void) {
 		INIT_LIST_HEAD(&(rec->list));
 		list_add(&(rec->list), &emp_rcrd_head);
 	}
-	
 }
 
 static void print_records(void) {
@@ -83,6 +87,11 @@ static void delete_records(void) {
 /*==================================================================================================================
  *					QUEUEs
  *==================================================================================================================
+ */
+
+/*
+ *	Create a FIFO of employee ids and just push them into it.
+ *	-	Then deQ each id and print it
  */
 
 static struct kfifo q;
@@ -119,7 +128,7 @@ static void print_q(void) {
 			pr_emerg("VSDBG: Cannot deQ\n");
 			return;
 		}
-		PLL(val);
+		PI(val);
 	}
 }
 
@@ -127,6 +136,57 @@ static void delete_q(void) {
 	kfifo_free(&q);
 }
 
+/*==================================================================================================================
+ *					HASH TABLE
+ *==================================================================================================================
+ */
+
+/*
+ *	Hash table with the following specifics
+ *	-	16 buckets (4 bits)
+ *	-	hash function - remainder of Emp ID when divided by 16.
+ *	-	Right now not taking care of large key values. Hence sticking to int.
+ */
+
+#define NUM_BITS_FOR_HASH_BUCKETS	4
+/*	Fix this: Library wrapper function not working	*/
+//hash_init(hash_tbl);
+DECLARE_HASHTABLE(hash_tbl, NUM_BITS_FOR_HASH_BUCKETS);
+
+static void hash_fn(int val, int *key) {
+	*key = val % (1 << (NUM_BITS_FOR_HASH_BUCKETS));
+}
+
+static void init_hash_tbl(void) {
+	int key;
+	struct emp_record *rec = NULL;
+	__hash_init(hash_tbl, (ARRAY_SIZE(hash_tbl)));
+	list_for_each_entry(rec, &emp_rcrd_head, list) {
+		hash_fn(rec->id, &key);
+		hash_add(hash_tbl, &(rec->node), key);
+	}
+}
+
+static void print_hash_tbl(void) {
+	int bkt;
+	struct emp_record *rec = NULL;
+	hash_for_each(hash_tbl, bkt, rec, node) {
+		CALL(pr_emerg("VSDBG: %s %d %lld\n", rec->name, rec->id, rec->sal));
+	}
+}
+
+static void look_up_hash_tbl(int val) {
+	int key;
+	struct emp_record *rec = NULL;
+	hash_fn(val, &key);
+	hash_for_each_possible(hash_tbl, rec, node, key) {
+		if (rec->id == val)	{
+			pr_emerg("VSDBG: ID%d emp name found:%s\n", val, rec->name);
+			return;
+		}
+	}
+	pr_emerg("VSDBG: ID%d emp name not found!\n", val);
+}
 
 static int init_kernel_ds(void)
 {
@@ -141,6 +201,14 @@ static int init_kernel_ds(void)
 	PS("-------------------------------------------------------")
 	init_q();
 	print_q();
+	PS("-------------------------------------------------------")
+	PS("init: Hash table in kernel");
+	PS("-------------------------------------------------------")
+	init_hash_tbl();
+	print_hash_tbl();
+	look_up_hash_tbl(67);
+	look_up_hash_tbl(68);
+	look_up_hash_tbl(23);
 	return 0;
 }
 
