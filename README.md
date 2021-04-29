@@ -10,3 +10,5 @@ Native linux device drivers
 	-	FIFO (Qs) usage (enqueue & dequeue)
 	-	hash table (insert and search)
 	-	red black trees (insert and search)
+-	interrupts and bottom halves
+	-	software generated irq
