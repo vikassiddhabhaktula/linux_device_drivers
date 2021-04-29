@@ -2,7 +2,7 @@
 #include <linux/kernel.h>	/* Needed for KERN_INFO */
 #include <linux/printk.h>
 
-int init_module(void)
+static int hello_world(void)
 {
 	pr_emerg("Hello World\n");
 	/* 
@@ -11,7 +11,10 @@ int init_module(void)
 	return 0;
 }
 
-void cleanup_module(void)
+static void bye_world(void)
 {
 	pr_emerg("Bye World!\n");
 }
+
+module_init(hello_world);
+module_exit(bye_world);
